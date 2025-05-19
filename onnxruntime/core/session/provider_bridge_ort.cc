@@ -1945,31 +1945,54 @@ std::shared_ptr<IExecutionProviderFactory> MIGraphXProviderFactoryCreator::Creat
 }
 
 // Adapter to convert the legacy OrtOpenVINOProviderOptions to ProviderOptions
-ProviderOptions OrtOpenVINOProviderOptionsToOrtOpenVINOProviderOptionsV2(const OrtOpenVINOProviderOptions* legacy_ov_options) {
+ProviderOptions OrtOpenVINOProviderOptionsToOrtOpenVINOProviderOptionsV2(const OrtOpenVINOProviderOptions* legacy_ov_options, const SessionOptions* session_options) {
   ProviderOptions ov_options_converted_map;
-  if (legacy_ov_options->device_type != nullptr)
-    ov_options_converted_map["device_type"] = legacy_ov_options->device_type;
+  const ConfigOptions& config_options = session_options->config_options;
 
-  if (legacy_ov_options->num_of_threads != '\0')
-    ov_options_converted_map["num_of_threads"] = std::to_string(legacy_ov_options->num_of_threads);
-
-  if (legacy_ov_options->cache_dir != nullptr)
-    ov_options_converted_map["cache_dir"] = legacy_ov_options->cache_dir;
-
-  if (legacy_ov_options->context != nullptr) {
-    std::stringstream context_string;
-    context_string << legacy_ov_options->context;
-    ov_options_converted_map["context"] = context_string.str();
+  //if (legacy_ov_options->device_type != nullptr) {
+  //  ov_options_converted_map["device_type"] = legacy_ov_options->device_type;
+  //}
+  if (config_options.getConfigEntry("ov_device_type")) {
+    ov_options_converted_map["device_type"] = config_options.getConfigEntry("ov_device_type").get();
   }
 
-  if (legacy_ov_options->enable_opencl_throttling) {
-    ov_options_converted_map["enable_opencl_throttling"] = "true";
+  //if (legacy_ov_options->num_of_threads != '\0') {
+  //  ov_options_converted_map["num_of_threads"] = std::to_string(legacy_ov_options->num_of_threads);
+  //}
+  if (config_options.getConfigEntry("ov_num_of_threads")) {
+    ov_options_converted_map["num_of_threads"] = config_options.getConfigEntry("ov_num_of_threads").get();
+  }
+
+  //if (legacy_ov_options->cache_dir != nullptr) {
+  //  ov_options_converted_map["cache_dir"] = legacy_ov_options->cache_dir;
+  //}
+  if (config_options.getConfigEntry("ov_cache_dir")) {
+    ov_options_converted_map["cache_dir"] = config_options.getConfigEntry("ov_cache_dir").get();
+  }
+
+  //if (legacy_ov_options->context != nullptr) {
+  //  std::stringstream context_string;
+  //  context_string << legacy_ov_options->context;
+  //  ov_options_converted_map["context"] = context_string.str();
+  //}
+  if (config_options.getConfigEntry("ov_context")) {
+    ov_options_converted_map["context"] = config_options.getConfigEntry("ov_context").get();
+  }
+
+  //if (legacy_ov_options->enable_opencl_throttling) {
+  // ov_options_converted_map["enable_opencl_throttling"] = "true";
+  //}
+  if (config_options.getConfigEntry("ov_enable_opencl_throttling")) {
+    ov_options_converted_map["enable_opencl_throttling"] = config_options.getConfigEntry("ov_enable_opencl_throttling").get();
   } else {
     ov_options_converted_map["enable_opencl_throttling"] = "false";
   }
 
-  if (legacy_ov_options->enable_dynamic_shapes) {
-    ov_options_converted_map["disable_dynamic_shapes"] = "false";
+  //if (legacy_ov_options->enable_dynamic_shapes) {
+  //  ov_options_converted_map["disable_dynamic_shapes"] = "false";
+  //}
+  if (config_options.getConfigEntry("ov_disable_dynamic_shapes")) {
+    ov_options_converted_map["disable_dynamic_shapes"] = config_options.getConfigEntry("ov_disable_dynamic_shapes").get();
   } else {
     ov_options_converted_map["disable_dynamic_shapes"] = "true";
   }
@@ -1978,10 +2001,30 @@ ProviderOptions OrtOpenVINOProviderOptionsToOrtOpenVINOProviderOptionsV2(const O
     LOGS_DEFAULT(WARNING) << "enable_npu_fast_compile option is deprecated. Skipping this option";
   }
   // Add new provider option below
-  ov_options_converted_map["num_streams"] = "1";
-  ov_options_converted_map["load_config"] = "";
-  ov_options_converted_map["model_priority"] = "DEFAULT";
-  ov_options_converted_map["enable_qdq_optimizer"] = "false";
+  if (config_options.getConfigEntry("ov_num_streams")) {
+    ov_options_converted_map["num_streams"] = config_options.getConfigEntry("ov_num_streams").get();
+  } else {
+    ov_options_converted_map["num_streams"] = "1";
+  }
+
+  if (config_options.getConfigEntry("ov_load_config")) {
+    ov_options_converted_map["load_config"] = config_options.getConfigEntry("ov_load_config").get();
+  } else {
+    ov_options_converted_map["load_config"] = "";
+  }
+
+  if (config_options.getConfigEntry("ov_model_priority")) {
+    ov_options_converted_map["model_priority"] = config_options.getConfigEntry("ov_model_priority").get();
+  } else {
+    ov_options_converted_map["model_priority"] = "DEFAULT";
+  }
+
+  if (config_options.getConfigEntry("ov_enable_qdq_optimizer")) {
+    ov_options_converted_map["enable_qdq_optimizer"] = config_options.getConfigEntry("ov_enable_qdq_optimizer").get();
+  } else {
+    ov_options_converted_map["enable_qdq_optimizer"] = "false";
+  }
+
   return ov_options_converted_map;
 }
 
@@ -2261,7 +2304,7 @@ ORT_API_STATUS_IMPL(OrtApis::SessionOptionsAppendExecutionProvider_MIGraphX, _In
 ORT_API_STATUS_IMPL(OrtApis::SessionOptionsAppendExecutionProvider_OpenVINO, _In_ OrtSessionOptions* options,
                     _In_ const OrtOpenVINOProviderOptions* provider_options) {
   API_IMPL_BEGIN
-  const onnxruntime::ProviderOptions ov_options_converted_map = onnxruntime::OrtOpenVINOProviderOptionsToOrtOpenVINOProviderOptionsV2(provider_options);
+  const onnxruntime::ProviderOptions ov_options_converted_map = onnxruntime::OrtOpenVINOProviderOptionsToOrtOpenVINOProviderOptionsV2(provider_options, &(options->value));
   auto factory = onnxruntime::OpenVINOProviderFactoryCreator::Create(&ov_options_converted_map, &(options->value));
   if (!factory) {
     return OrtApis::CreateStatus(ORT_FAIL, "SessionOptionsAppendExecutionProvider_OpenVINO: Failed to load shared library");
